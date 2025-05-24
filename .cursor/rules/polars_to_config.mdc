@@ -1,0 +1,20 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+This rule defines how polars epressions can be converted to config (JSON or a python dict) or the other way around (config to polars).
+
+- Config describes operations by simply describing the exact function that we want to execute.
+- The first step in a config operates on the polars library, e.g. `pl`, and not on an already existing dataframe.
+- Steps define their method in the "operation" key.
+- Steps define the arguments to an operation in a "kwargs" key; kwargs is a key-value dict, where the keys are the names of the arguments to the polars function, and the values can be all primitive types, or, importantly, an expression.
+- If an expression object is encountered, it is evaluated.
+
+Expressions are encoded in the format, such that we can consume the full API of polars. Expression are read from the config in the following way:
+1. the "expr" key has a value that defines which expression it is about. It matches exactly with how the expression function would be called in code. String expressions that usually start with "str." work the same way: use `str.ends_with` instead of just `ends_with`
+2. the "kwargs" key of the expression config object has the arguments to the expression, that are parsed in the same way as we parsed before: primitive types stay the same, objects are evaluated as expression (causing recursion in this case).
+3. the "on" key defines on which expression the expression in this object must be applied. This is similar to the "self" argument in python, referring to which object the method (not function) should be calling.
+
+The guide above should be enough to always be able to create a config from your knowledge about polars,
+and create polars code from config.
