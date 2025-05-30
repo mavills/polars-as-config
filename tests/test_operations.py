@@ -34,11 +34,6 @@ def test_eq():
 
 
 def test_add():
-    # df = pl.DataFrame({"x": [1, 2, 3, 4, 5]})
-    # df.with_columns(
-    #     pl.col("x").add(2).alias("x+int"),
-    #     pl.col("x").add(pl.col("x").cum_prod()).alias("x+expr"),
-    # )
     config = {
         "steps": [
             {"operation": "scan_csv", "kwargs": {"source": "tests/test_data/xy.csv"}},

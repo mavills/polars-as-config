@@ -20,9 +20,10 @@ def handle_expr(
     expr_content["kwargs"].pop("kwargs", None)
     expr_content["kwargs"].pop("on", None)
     expr_content["kwargs"].pop("expr", None)
-    if expr.startswith("str."):
-        subject = subject.str
-        expr = expr[4:]
+    # Handle polars expression prefixes like str.len etc.
+    if "." in expr:
+        prefix, expr = expr.split(".", 1)
+        subject = getattr(subject, prefix)
     return getattr(subject, expr)(**expr_content["kwargs"])
 
 

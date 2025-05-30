@@ -1,0 +1,74 @@
+{
+  "steps": [
+    {
+      "block_type": "input_file",
+      "operation": "scan_csv",
+      "inputs": [
+        {
+          "name": "File Path",
+          "type": "path",
+          "path": "source",
+          "editable": true,
+          "constant": true,
+          "default": null
+        }
+      ],
+      "kwargs": {
+        "source": "source_path"
+      },
+      "outputs": []
+    },
+    {
+      "block_type": "parse_date",
+      "operation": "with_columns",
+      "inputs": [
+        {
+          "name": "Datetime String",
+          "type": "str",
+          "path": "parsed_date.on.on",
+          "editable": true,
+          "constant": false,
+          "default": null
+        },
+        {
+          "name": "Format",
+          "type": "str",
+          "path": "parsed_date.on.kwargs.format",
+          "editable": true,
+          "constant": false,
+          "default": "%Y-%m-%d %H:%M%#z"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "parsed_date",
+          "type": "datetime",
+          "path": "parsed_date.kwargs.name",
+          "editable": false,
+          "constant": false,
+          "default": null
+        }
+      ],
+      "kwargs": {
+        "parsed_date": {
+          "expr": "alias",
+          "on": {
+            "expr": "str.to_datetime",
+            "on": {
+              "expr": "col",
+              "kwargs": {
+                "name": "date_str"
+              }
+            },
+            "kwargs": {
+              "format": "%Y-%m-%d %H:%M%#z"
+            }
+          },
+          "kwargs": {
+            "name": "parsed_date"
+          }
+        }
+      }
+    }
+  ]
+}
