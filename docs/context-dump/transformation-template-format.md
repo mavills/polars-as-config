@@ -6,7 +6,8 @@ The first part is creating transformations.
 To create a transformation, you need building blocks that allow you to mix and combine, operate on, and select columns of a specific input file.
 Since building blocks stand alone, they need to be able to interact with other building blocks.
 This means that one of the requirements of a blocks is that is has inputs and outputs defined.
-It also needs operations that it will execute, and some way of identifying a template and describing it.
+It also needs operations that it will execute, and some way of identifying and describing it.
+Lastly, since the final goal is operating on a combined set of template blocks, there is some room for "variables", which are passed from the outside after transforming. These cannot be connected to inside a configuration, but only when the transformation is applied onto a set of input files to create output files (both specified as variables to the system!).
 
 Defining these blocks is fully up to the implementer of them.
 Once they are defined, they can simply be re-used, without having to know how inputs are connected to the operations: as long as it is clear what the input and output mean, the operations will be clear for an end-user.
@@ -116,6 +117,32 @@ Another constraint we can add that is simply nice, is that we can start the outp
 This makes debugging a whole lot easier, as we now know where the output came from.
 Adding identifiers happens when a template block is instantiated during transformation configuration creation, so outside of the scope of this document.
 
+## Variables
+
+Variables are defined as a list of objects, and define their display names and how they are used in the template:
+```json
+{
+  ...,
+  "variables": [
+    {
+      "name": "Weather data file name",
+      "key": "weather_data_file"
+    },
+    {
+      "name": "Location file name",
+      "key": "location_file"
+    },
+    {...},
+    ...
+  ]
+}
+```
+
+They can be used in the configuration by referencing the `key` using a dollar sign `$`.
+So any string that starts with a dollar sign in the template will be interpreted as a variable and evaluated as such (by simple replacement at transformation time).
+If for some reason you would need a dollar sign in the definition, I propose to use two dollar signs `$$`.
+I will refrain from implementing this for now, as I see no practical use-cases for dollar signs.
+
 ## API reference of transformation template
 
 ### Template definition
@@ -130,7 +157,8 @@ A transformation template is a JSON object that defines a reusable building bloc
   "description": "<string>",
   "inputs": [<InputDefinition>, ...],
   "outputs": [<OutputDefinition>, ...],
-  "operations": [<OperationDefinition>, ...]
+  "operations": [<OperationDefinition>, ...],
+  "variables": [<VariableDefinition>, ...]
 }
 ```
 
@@ -143,6 +171,7 @@ A transformation template is a JSON object that defines a reusable building bloc
 | `inputs`      | `InputDefinition[]`     | No       | Array of input definitions that describe what data this template expects. Empty array if no inputs.    |
 | `outputs`     | `OutputDefinition[]`    | No       | Array of output definitions that describe what data this template produces. Empty array if no outputs. |
 | `operations`  | `OperationDefinition[]` | Yes      | Array of operations that will be executed. Must contain at least one operation.                        |
+| `variables`   | `VariableDefinition[]`  | No       | Array of variable definitions. These are placeholders for values provided at transformation runtime.   |
 
 ### Input definition
 
@@ -202,6 +231,26 @@ Defines an output that this template produces.
 - `"column"`: Produces a new column
 - `"dataframe"`: Produces a transformed dataframe
 - `"value"`: Produces a computed value
+
+### Variable definition
+
+Defines a variable that can be set when the transformation is applied. These variables are typically used to provide context-specific values like file paths or runtime parameters.
+
+**Structure:**
+
+```json
+{
+  "name": "<string>",
+  "key": "<string>"
+}
+```
+
+**Fields:**
+
+| Field  | Type     | Required | Description                                                                                   |
+| ------ | -------- | -------- | --------------------------------------------------------------------------------------------- |
+| `name` | `string` | Yes      | Human-readable name for the variable, used for display or documentation purposes.           |
+| `key`  | `string` | Yes      | Unique key used to identify and reference the variable when applying the transformation.    |
 
 ### Operation definition
 
@@ -282,6 +331,16 @@ Paths use dot notation to navigate the JSON structure:
 {
   "name": "parse_date_column",
   "description": "Converts a string column to datetime format with configurable format string",
+  "variables": [
+    {
+      "name": "Input File Path",
+      "key": "input_file_path"
+    },
+    {
+      "name": "Output File Path",
+      "key": "output_file_path"
+    }
+  ],
   "inputs": [
     {
       "name": "Source column",
