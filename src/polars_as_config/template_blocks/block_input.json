@@ -1,4 +1,17 @@
 {
+  "name": "File Input",
+  "description": "Reads a file from a URI",
+  "inputs": [
+
+  ],
+  "outputs": [
+
+  ],
+  "operations": [
+
+  ]
+}
+{
   "steps": [
     {
       "block_type": "input_file",
@@ -26,16 +39,12 @@
           "name": "Datetime String",
           "type": "str",
           "path": "parsed_date.on.on",
-          "editable": true,
-          "constant": false,
           "default": null
         },
         {
           "name": "Format",
           "type": "str",
           "path": "parsed_date.on.kwargs.format",
-          "editable": true,
-          "constant": false,
           "default": "%Y-%m-%d %H:%M%#z"
         }
       ],
@@ -44,8 +53,6 @@
           "name": "parsed_date",
           "type": "datetime",
           "path": "parsed_date.kwargs.name",
-          "editable": false,
-          "constant": false,
           "default": null
         }
       ],
