@@ -1,0 +1,52 @@
+{
+  "name": "String to Datetime",
+  "description": "Convert a string to a datetime using a specified format",
+  "inputs": [
+    {
+      "name": "Date String Source",
+      "type": "string",
+      "description": "The string to convert to a datetime",
+      "path": "operations.0.kwargs.converted_datetime_col.on.on.kwargs.name"
+    },
+    {
+      "name": "Format",
+      "type": "string",
+      "description": "The format of the datetime string",
+      "path": "operations.0.kwargs.converted_datetime_col.on.kwargs.format",
+      "default": "%Y-%m-%d %H:%M:%S"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "Converted Datetime",
+      "type": "datetime",
+      "description": "The converted datetime",
+      "path": "operations.0.kwargs.converted_datetime_col.kwargs.name"
+    }
+  ],
+  "operations": [
+    {
+      "operation": "with_columns",
+      "kwargs": {
+        "converted_datetime_col": {
+          "expr": "alias",
+          "on": {
+            "expr": "str.to_datetime",
+            "on": {
+              "expr": "col",
+              "kwargs": {
+                "name": "date_string_source"
+              }
+            },
+            "kwargs": {
+              "format": "%Y-%m-%d %H:%M:%S"
+            }
+          },
+          "kwargs": {
+            "name": "parsed_datetime_output"
+          }
+        }
+      }
+    }
+  ]
+}
