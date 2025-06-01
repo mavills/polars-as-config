@@ -120,6 +120,7 @@ Adding identifiers happens when a template block is instantiated during transfor
 ## Variables
 
 Variables are defined as a list of objects, and define their display names and how they are used in the template:
+
 ```json
 {
   ...,
@@ -195,7 +196,7 @@ Defines an input parameter that can be configured when using the template.
 | `name`    | `string` | Yes      | Human-readable name describing what this input represents (e.g., "Date string", "Source column").                                                                              |
 | `type`    | `string` | Yes      | Type of input expected. Valid values: `"column"`, `"value"`, `"expression"`, `"template"`.                                                                                     |
 | `path`    | `string` | Yes      | JSONPath-style string indicating where this input value should be injected in the operations. Uses dot notation (e.g., `"operations.0.kwargs.parsed_date.on.on.kwargs.name"`). |
-| `default` | `any`    | Yes       | Default value to use when no input is provided. Type should match the expected input type.                                                                                     |
+| `default` | `any`    | Yes      | Default value to use when no input is provided. Type should match the expected input type.                                                                                     |
 
 **Input Types:**
 
@@ -247,10 +248,10 @@ Defines a variable that can be set when the transformation is applied. These var
 
 **Fields:**
 
-| Field  | Type     | Required | Description                                                                                   |
-| ------ | -------- | -------- | --------------------------------------------------------------------------------------------- |
-| `name` | `string` | Yes      | Human-readable name for the variable, used for display or documentation purposes.           |
-| `key`  | `string` | Yes      | Unique key used to identify and reference the variable when applying the transformation.    |
+| Field  | Type     | Required | Description                                                                              |
+| ------ | -------- | -------- | ---------------------------------------------------------------------------------------- |
+| `name` | `string` | Yes      | Human-readable name for the variable, used for display or documentation purposes.        |
+| `key`  | `string` | Yes      | Unique key used to identify and reference the variable when applying the transformation. |
 
 ### Operation definition
 
