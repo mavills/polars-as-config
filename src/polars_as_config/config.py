@@ -6,6 +6,11 @@ def handle_expr(
     expr_content: dict,
     variables: dict,
 ) -> pl.Expr:
+    if "args" in expr_content:
+        expr_content["args"] = [
+            parse_kwargs({i: expr_content["args"][i]}, variables)[i]
+            for i in range(len(expr_content["args"]))
+        ]
     if "kwargs" in expr_content:
         expr_content["kwargs"] = parse_kwargs(expr_content["kwargs"], variables)
 
@@ -17,14 +22,13 @@ def handle_expr(
             variables=variables,
         )
         subject = on_expr
-    expr_content["kwargs"].pop("kwargs", None)
-    expr_content["kwargs"].pop("on", None)
-    expr_content["kwargs"].pop("expr", None)
     # Handle polars expression prefixes like str.len etc.
     if "." in expr:
         prefix, expr = expr.split(".", 1)
         subject = getattr(subject, prefix)
-    return getattr(subject, expr)(**expr_content["kwargs"])
+    return getattr(subject, expr)(
+        *expr_content.get("args", []), **expr_content.get("kwargs", {})
+    )
 
 
 def parse_kwargs(kwargs: dict, variables: dict):
@@ -32,9 +36,7 @@ def parse_kwargs(kwargs: dict, variables: dict):
     Parse the kwargs of a step or expression.
     """
     for key, value in kwargs.items():
-        if key == "kwargs":
-            kwargs[key] = parse_kwargs(value, variables)
-        elif isinstance(value, str):
+        if isinstance(value, str):
             if value.startswith("$$"):
                 # Handle escaped dollar sign - replace $$ with $
                 kwargs[key] = value[1:]  # Remove the first $ to unescape
@@ -46,21 +48,21 @@ def parse_kwargs(kwargs: dict, variables: dict):
                 kwargs[key] = handle_expr(
                     expr=value["expr"], expr_content=value, variables=variables
                 )
-            else:
-                raise ValueError(f"Invalid kwarg object type: {type(value)}, {value}")
     return kwargs
 
 
 def handle_step(current_data, step: dict, variables: dict):
     operation = step["operation"]
-    kwargs = step["kwargs"]
+    args = step.get("args", [])
+    kwargs = step.get("kwargs", {})
     if current_data is None:
         method = getattr(pl, operation)
     else:
         method = getattr(current_data, operation)
 
+    parsed_args = [parse_kwargs({i: args[i]}, variables)[i] for i in range(len(args))]
     parsed_kwargs = parse_kwargs(kwargs, variables)
-    return method(**parsed_kwargs)
+    return method(*parsed_args, **parsed_kwargs)
 
 
 def run_config(config: dict):

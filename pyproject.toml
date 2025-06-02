@@ -48,3 +48,6 @@ select = [
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-ra -q"
+pythonpath = [
+  "src"
+]

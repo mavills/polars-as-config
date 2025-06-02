@@ -250,7 +250,7 @@ def test_mixed_escaped_and_unescaped_variables():
     """Test mixing escaped dollar signs with actual variable substitution."""
     config = {
         "variables": {
-            "actual_value": 42,
+            "actual_value": 42.0,
             "file_path": "tests/test_data/xy.csv"
         },
         "steps": [
@@ -276,7 +276,7 @@ def test_mixed_escaped_and_unescaped_variables():
             "x": [1, 2, None, 4],
             "y": [2, 2, None, 4],
             "escaped_text": ["$actual_value", "$actual_value", "$actual_value", "$actual_value"],
-            "real_value": [42, 42, 42, 42],
+            "real_value": [42.0, 42.0, 42.0, 42.0],
         }
     )
     assert_frame_equal(result.collect(), expected)
