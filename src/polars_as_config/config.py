@@ -35,7 +35,11 @@ def parse_kwargs(kwargs: dict, variables: dict):
         if key == "kwargs":
             kwargs[key] = parse_kwargs(value, variables)
         elif isinstance(value, str):
-            if value.startswith("$") and not value.startswith("$$"):
+            if value.startswith("$$"):
+                # Handle escaped dollar sign - replace $$ with $
+                kwargs[key] = value[1:]  # Remove the first $ to unescape
+            elif value.startswith("$"):
+                # Handle variable substitution
                 kwargs[key] = variables[value[1:]]
         elif isinstance(value, dict):
             if "expr" in value:
