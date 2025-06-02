@@ -2,6 +2,9 @@
 
 This library allows you to define Polars operations using a configuration format (JSON or Python dict), making it easy to serialize, store, and share data processing pipelines.
 
+For a high-level overview, mission, vision, and a list of features, please see the [[Home|Home]] page of our Wiki.
+For detailed technical explanations and examples of all features, please visit the [[Technical Features|Technical-Features]] page on our Wiki.
+
 ## Quick Start
 
 ```python
@@ -34,131 +37,37 @@ config = {
 result = run_config(config)
 ```
 
-## Config Format
+## Config Format Overview
 
-The config describes operations by defining the exact function to execute. Each step in the config:
+The configuration is a JSON object (or Python dictionary) that describes a series of data processing steps. Each step in the `"steps"` array typically includes:
 
-1. Defines its operation in the "operation" key
-2. Provides arguments in the "kwargs" key
-3. Can use expressions to define complex operations
+- `"operation"`: The Polars operation to perform (e.g., `"scan_csv"`, `"with_columns"`, `"filter"`).
+- `"args"`: A list of positional arguments for the operation.
+- `"kwargs"`: A dictionary of keyword arguments for the operation.
 
-### Basic Operations
+Complex operations and transformations within steps are defined using an **expression format**.
 
-```python
-# Reading a CSV file
-config = {
-    "steps": [
-        {"operation": "scan_csv", "kwargs": {"source": "data.csv"}}
-    ]
-}
+For a comprehensive guide on the config and expression formats, including various examples like basic operations, string operations, date operations, and advanced features like using variables and custom functions, please see our [[Technical Features|Technical-Features]] Wiki page.
 
-# Filtering rows
-config = {
-    "steps": [
-        {
-            "operation": "filter",
-            "kwargs": {
-                "predicate": {
-                    "expr": "gt",
-                    "on": {"expr": "col", "kwargs": {"name": "age"}},
-                    "kwargs": {"other": 18}
-                }
-            }
-        }
-    ]
-}
-```
+## Expression Format Overview
 
-### String Operations
+Expressions allow you to define how data should be manipulated. Key components of an expression are:
 
-```python
-# String concatenation
-config = {
-    "steps": [
-        {
-            "operation": "with_columns",
-            "kwargs": {
-                "full_name": {
-                    "expr": "str.concat",
-                    "on": {"expr": "col", "kwargs": {"name": "first"}},
-                    "kwargs": {
-                        "delimiter": "-",
-                        "other": {"expr": "col", "kwargs": {"name": "last"}}
-                    }
-                }
-            }
-        }
-    ]
-}
+- `"expr"`: The name of the Polars expression function (e.g., `"str.concat"`, `"eq"`, `"gt"`).
+- `"on"`: The column or expression to apply this expression to (acting like `self` in an object-oriented context).
+- `"args"` and `"kwargs"`: Positional and keyword arguments for the expression function.
 
-# String slicing
-config = {
-    "steps": [
-        {
-            "operation": "with_columns",
-            "kwargs": {
-                "sliced": {
-                    "expr": "str.slice",
-                    "on": {"expr": "col", "kwargs": {"name": "text"}},
-                    "kwargs": {
-                        "offset": 1,
-                        "length": 2
-                    }
-                }
-            }
-        }
-    ]
-}
-```
+**Example: `pl.col("x").gt(5)`**
 
-### Date Operations
-
-```python
-# Converting strings to datetime
-config = {
-    "steps": [
-        {
-            "operation": "with_columns",
-            "kwargs": {
-                "parsed_date": {
-                    "expr": "str.to_datetime",
-                    "on": {"expr": "col", "kwargs": {"name": "date_str"}},
-                    "kwargs": {
-                        "format": "%Y-%m-%d %H:%M%#z"
-                    }
-                }
-            }
-        }
-    ]
-}
-```
-
-## Expression Format
-
-Expressions are defined using three keys:
-
-1. `expr`: The name of the expression function (e.g., "str.concat", "eq", "gt")
-2. `on`: The expression to apply the operation to (like "self" in Python)
-3. `kwargs`: Arguments for the expression
-
-```python
-# Example: x > 5 in polars: pl.col("x").gt(5)
+```json
 {
-    "expr": "gt",
-    "on": {"expr": "col", "kwargs": {"name": "x"}},
-    "kwargs": {"other": 5}
-}
-
-# Example: str1 + "-" + str2 in polars: pl.col("str1").str.concat("-", pl.col("str2"))
-{
-    "expr": "str.concat",
-    "on": {"expr": "col", "kwargs": {"name": "str1"}},
-    "kwargs": {
-        "delimiter": "-",
-        "other": {"expr": "col", "kwargs": {"name": "str2"}}
-    }
+  "expr": "gt",
+  "on": { "expr": "col", "kwargs": { "name": "x" } },
+  "kwargs": { "other": 5 }
 }
 ```
+
+For more detailed examples and explanations of how to build simple and nested expressions, refer to the [[Technical Features|Technical-Features]] page on our Wiki.
 
 ## Installation
 
