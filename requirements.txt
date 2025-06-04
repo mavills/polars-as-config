@@ -1,2 +1,4 @@
 polars
 pytest
+twine
+build

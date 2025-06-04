@@ -1,3 +1,3 @@
 [submodule "polars-as-config.wiki"]
 	path = polars-as-config.wiki
-	url = https://github.com/mavills/polars-as-config.wiki.git
+	url = git@github.com:mavills/polars-as-config.wiki.git
