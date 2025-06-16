@@ -2,6 +2,15 @@
 
 This repository is a python library that aids in transforming arbitrary csv files to different formats using polars building blocks, but as configuration.
 
+## Key Features
+
+- **Configuration-driven transformations**: Define Polars operations using JSON or Python dictionaries
+- **Multiple dataframes support**: Work with multiple named dataframes simultaneously within a single configuration
+- **Type-hint based parameter resolution**: Automatic detection and substitution of dataframe references using Python type hints
+- **Expression system**: Support for complex Polars expressions defined declaratively
+- **Variable substitution**: Runtime variables for dynamic configuration (file paths, parameters)
+- **Custom functions**: Extensible system for adding custom transformation functions
+
 ## Technology choices
 
 - python 3.13

@@ -1,9 +1,10 @@
 import hashlib
+
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from polars_as_config.config import Config, run_config
+from polars_as_config.config import Config
 
 
 def hash_row(row: dict) -> str:
@@ -56,7 +57,7 @@ def test_hash_function_basic():
 
     # Create config with custom function
     custom_config = Config().add_custom_functions({"hash_row": hash_row})
-    result = custom_config.run_config(config)
+    result = custom_config.run_config(config)[None]
 
     # Verify that hash column was added and contains valid hashes
     collected = result.collect()
@@ -102,7 +103,7 @@ def test_hash_function_with_transformations():
     }
 
     custom_config = Config().add_custom_functions({"hash_row": hash_row})
-    result = custom_config.run_config(config)
+    result = custom_config.run_config(config)[None]
     collected = result.collect()
 
     expected_columns = ["name", "category", "source", "row_hash"]
@@ -129,7 +130,7 @@ def test_simple_custom_function():
     }
 
     custom_config = Config().add_custom_functions({"multiply_by_two": multiply_by_two})
-    result = custom_config.run_config(config)
+    result = custom_config.run_config(config)[None]
 
     expected = pl.DataFrame(
         {
@@ -169,7 +170,7 @@ def test_custom_function_with_struct():
     }
 
     custom_config = Config().add_custom_functions({"format_name": format_name})
-    result = custom_config.run_config(config)
+    result = custom_config.run_config(config)[None]
 
     expected = pl.DataFrame(
         {
@@ -207,7 +208,7 @@ def test_multiple_custom_functions():
     custom_config = Config().add_custom_functions(
         {"multiply_by_two": multiply_by_two, "hash_row": hash_row}
     )
-    result = custom_config.run_config(config)
+    result = custom_config.run_config(config)[None]
     collected = result.collect()
 
     # Check both custom functions worked
@@ -284,11 +285,12 @@ def test_hash_function_deterministic():
         ]
     }
 
-    custom_config = Config().add_custom_functions({"hash_row": hash_row})
+    custom_config_1 = Config().add_custom_functions({"hash_row": hash_row})
+    custom_config_2 = Config().add_custom_functions({"hash_row": hash_row})
 
     # Run the same config twice
-    result1 = custom_config.run_config(config).collect()
-    result2 = custom_config.run_config(config).collect()
+    result1 = custom_config_1.run_config(config)[None].collect()
+    result2 = custom_config_2.run_config(config)[None].collect()
 
     # Hashes should be identical
     assert_frame_equal(result1, result2)
@@ -316,7 +318,7 @@ def test_config_builder_pattern():
     result = (
         Config()
         .add_custom_functions({"multiply_by_two": multiply_by_two})
-        .run_config(config)
+        .run_config(config)[None]
     )
 
     expected = pl.DataFrame(

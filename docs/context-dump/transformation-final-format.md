@@ -8,9 +8,29 @@ The final transformation configuration is a JSON object that contains all the ne
 
 - **Executable:** This format is designed to be directly interpretable by an execution engine.
 - **Ordered Operations:** Operations are listed in the precise order they need to be executed.
-- **Dataframe Management:** The flow of data through different states (dataframes) is explicitly managed. Each operation acts on one or more input dataframes and produces an output dataframe.
+- **Multiple Dataframe Management:** The system now supports tracking and managing multiple dataframes simultaneously. Each dataframe is identified by a unique name and can be referenced by subsequent operations through type-hint checking and automatic parameter substitution.
+- **Type-Hint Aware Parameter Resolution:** The system uses Python type hints to automatically detect when a parameter expects a dataframe object and substitutes the actual dataframe instead of its string identifier.
 - **Resolved Configuration:** All placeholders, connections, and parameters defined at the template or graph level have been resolved into concrete instructions.
 - **Variables for Runtime:** It includes a consolidated list of variables required at runtime, typically for specifying input/output paths or other dynamic parameters.
+
+## Multiple Dataframes Support
+
+The system supports working with multiple dataframes simultaneously through the following mechanisms:
+
+### Dataframe Tracking
+- Each operation can specify a `dataframe` field to indicate which named dataframe it should operate on or create
+- The system maintains a registry of all active dataframes using their string identifiers
+- If no `dataframe` field is specified, operations default to using `None` as the dataframe identifier
+
+### Type-Hint Based Parameter Resolution
+- The system inspects the type hints of Polars operations to determine which parameters expect dataframe objects
+- When a parameter is detected as expecting a `pl.DataFrame` type and the provided value is a string that matches an existing dataframe identifier, the system automatically substitutes the actual dataframe object
+- This allows seamless referencing of dataframes by name in configuration while maintaining type safety
+
+### Dataframe Parameter Syntax
+- Dataframe references in configuration use simple string identifiers (e.g., `"customers"`, `"orders"`)
+- The system automatically resolves these to actual dataframe objects when the operation signature indicates a dataframe parameter is expected
+- This enables operations like joins, concatenations, and other multi-dataframe operations to be configured declaratively
 
 ## JSON Structure
 
@@ -23,8 +43,8 @@ The root of the transformation final format is a JSON object with the following 
   "variables": [
     /* Array of VariableInstance objects */
   ],
-  "operations": [
-    /* Array of OperationInstance objects */
+  "steps": [
+    /* Array of Step objects - updated from operations */
   ],
   "outputs": [
     /* Array of TransformationOutput objects */
@@ -66,26 +86,25 @@ The root of the transformation final format is a JSON object with the following 
 - **`OperationInstance` Object Structure:**
   ```json
   {
-    "id": "string", // A unique identifier for this operation instance within the transformation.
-    "description": "string", // Optional: Human-readable description of this specific step.
-    "polars_operation": "string", // The name of the Polars function/method to execute (e.g., "read_csv", "with_columns", "join", "filter").
-    "input_dataframe_id": "string | null", // ID of the primary input dataframe. `null` if the operation creates the first dataframe (e.g., read_csv).
+    "operation": "string", // The name of the Polars function/method to execute (e.g., "scan_csv", "with_columns", "join", "filter").
+    "dataframe": "string | null", // Optional: Name/identifier of the dataframe this operation targets. If null or omitted, defaults to None.
+    "args": ["any"], // Optional: Positional arguments for the operation.
     "kwargs": {
       /* object */
-    }, // Keyword arguments for the `polars_operation`.
-    // Values can be literals, Expression Objects (similar to template format but fully resolved),
-    // or references to other dataframes (e.g., for joins).
-    "output_dataframe_id": "string" // ID assigned to the dataframe resulting from this operation. This ID can be used by subsequent operations.
+    } // Keyword arguments for the `operation`.
+    // Values can be literals, Expression Objects, dataframe references (automatically resolved via type hints),
+    // or variable references.
   }
   ```
-  - **`id`**: Useful for logging, debugging, and potentially for internal referencing if needed.
-  - **`input_dataframe_id`**: Specifies the context. For an operation like `df.with_columns(...)`, this would be the ID of `df`. For `pl.read_csv(...)`, this would be `null`.
-  - **`kwargs`**:
-    - The structure of `kwargs` largely mirrors the Polars API for the given `polars_operation`.
-    - It can contain nested `ExpressionObject` structures similar to those in `transformation-template-format.md` but fully resolved (no unresolved template `input` paths).
-    - For operations requiring multiple dataframes (e.g., `join`, `concat`), `kwargs` will contain references to other `output_dataframe_id`s from previous steps. For example, a `join` might have `{"other_dataframe_id": "some_other_df_id", "left_on": "colA", "right_on": "colB"}`.
-    - To reference a runtime variable (e.g., for a file path in `read_csv`), a special object can be used: `{"source": {"type": "variable_reference", "key": "my_input_file_var"}}`.
-  - **`output_dataframe_id`**: Every operation produces a dataframe (even if it's conceptually an in-place modification, it results in a new state). This ID must be unique within the transformation.
+  - **`operation`**: The Polars operation to execute (e.g., `"scan_csv"`, `"with_columns"`, `"join"`).
+  - **`dataframe`**: The identifier of the dataframe this operation should operate on or create. The system tracks all dataframes by these identifiers.
+  - **`args`**: Positional arguments passed to the operation.
+  - **`kwargs`**: 
+    - The structure of `kwargs` largely mirrors the Polars API for the given operation.
+    - Can contain nested `ExpressionObject` structures for complex transformations.
+    - **Dataframe References**: When a parameter expects a dataframe (detected via type hints), you can reference other dataframes by their string identifier. The system automatically substitutes the actual dataframe object.
+    - **Variable References**: Use `$variable_name` syntax to reference runtime variables.
+    - **Escaped Dollar Signs**: Use `$$` to include a literal `$` character.
 
 ### 5. `outputs`
 
@@ -95,7 +114,7 @@ The root of the transformation final format is a JSON object with the following 
   ```json
   {
     "name": "string", // A logical name for this output (e.g., "final_customer_report", "cleaned_sales_data")
-    "dataframe_id": "string", // The `output_dataframe_id` from one of the operations that represents the data to be outputted.
+    "dataframe_id": "string", // The identifier of the dataframe to be outputted.
     "destination_variable_key": "string" // The `key` of a variable (from the top-level `variables` list)
     // whose runtime value specifies the destination (e.g., an output file path).
     // "format_options": { /* object */ } // Optional: e.g., for CSV: {"delimiter": ",", "include_header": true}
@@ -103,14 +122,14 @@ The root of the transformation final format is a JSON object with the following 
   }
   ```
 
-## Example Snippet
+## Example with Multiple Dataframes
 
-Here's how a sequence of operations and outputs might look in a complete transformation JSON:
+Here's an example showing multiple dataframes being created, processed, and joined:
 
 ```json
 {
-  "name": "Customer Order Processing",
-  "description": "Loads customer and order data, cleans customer emails, joins them, and outputs the result.",
+  "name": "Customer Order Processing with Multiple Dataframes",
+  "description": "Loads customer and order data into separate dataframes, processes each independently, then joins them.",
   "variables": [
     {
       "key": "customer_csv_path",
@@ -118,88 +137,98 @@ Here's how a sequence of operations and outputs might look in a complete transfo
       "description": "Path to the input CSV file containing customer data."
     },
     {
-      "key": "orders_parquet_path",
+      "key": "orders_parquet_path", 
       "name": "Orders Parquet File Path",
       "description": "Path to the input Parquet file containing order data."
     },
     {
       "key": "output_joined_data_path",
-      "name": "Output Parquet File Path",
-      "description": "Path where the final joined data will be saved in Parquet format."
+      "name": "Output Parquet File Path", 
+      "description": "Path where the final joined data will be saved."
     }
   ],
-  "operations": [
+  "steps": [
     {
-      "id": "op_read_customers",
-      "description": "Load customer data from CSV",
-      "polars_operation": "read_csv",
-      "input_dataframe_id": null,
+      "operation": "scan_csv",
+      "dataframe": "customers",
       "kwargs": {
-        "source": {
-          "type": "variable_reference",
-          "key": "customer_csv_path"
-        },
+        "source": "$customer_csv_path",
         "has_header": true,
         "separator": ","
-      },
-      "output_dataframe_id": "df_customers_raw"
+      }
     },
     {
-      "id": "op_clean_email",
-      "description": "Lowercase email addresses in customer data",
-      "polars_operation": "with_columns",
-      "input_dataframe_id": "df_customers_raw",
+      "operation": "with_columns",
+      "dataframe": "customers",
       "kwargs": {
-        "email": {
+        "email_clean": {
           "expr": "str.to_lowercase",
           "on": {
             "expr": "col",
             "kwargs": { "name": "email" }
           }
         }
-      },
-      "output_dataframe_id": "df_customers_cleaned_email"
+      }
     },
     {
-      "id": "op_read_orders",
-      "description": "Load order data from Parquet",
-      "polars_operation": "read_parquet",
-      "input_dataframe_id": null,
+      "operation": "scan_parquet",
+      "dataframe": "orders",
       "kwargs": {
-        "source": {
-          "type": "variable_reference",
-          "key": "orders_parquet_path"
+        "source": "$orders_parquet_path"
+      }
+    },
+    {
+      "operation": "filter",
+      "dataframe": "orders", 
+      "kwargs": {
+        "predicate": {
+          "expr": "gt",
+          "on": {
+            "expr": "col",
+            "kwargs": { "name": "order_amount" }
+          },
+          "kwargs": { "other": 0 }
         }
-      },
-      "output_dataframe_id": "df_orders_raw"
+      }
     },
     {
-      "id": "op_join_customer_orders",
-      "description": "Join cleaned customer data with their orders",
-      "polars_operation": "join",
-      "input_dataframe_id": "df_customers_cleaned_email",
+      "operation": "join",
+      "dataframe": "customers",
       "kwargs": {
-        "other": {
-          "type": "dataframe_reference",
-          "id": "df_orders_raw"
-        },
+        "other": "orders",
         "left_on": "customer_id",
-        "right_on": "user_id",
+        "right_on": "user_id", 
         "how": "inner"
-      },
-      "output_dataframe_id": "df_customer_orders_joined"
+      }
     }
   ],
   "outputs": [
     {
       "name": "final_joined_customer_orders",
-      "dataframe_id": "df_customer_orders_joined",
+      "dataframe_id": "customers",
       "destination_variable_key": "output_joined_data_path"
-      // "format_options": {"file_type": "parquet", "compression": "snappy"} // Example for specific output formatting
     }
   ]
 }
 ```
+
+In this example:
+- Two separate dataframes are created: `"customers"` and `"orders"`
+- Each dataframe is processed independently with its own operations
+- The final `join` operation references the `"orders"` dataframe by name in the `other` parameter
+- The system automatically detects that `other` expects a dataframe (via type hints) and substitutes the actual `orders` dataframe object
+- The final result is stored back in the `"customers"` dataframe
+
+## Type-Hint Based Resolution Details
+
+The system uses Python's `inspect` module to examine the type hints of Polars operations:
+
+1. **Parameter Inspection**: For each operation, the system inspects the method signature to identify parameters that expect `pl.DataFrame` objects
+2. **String Detection**: When a parameter value is a string and the parameter is typed as expecting a dataframe, the system checks if a dataframe with that identifier exists
+3. **Automatic Substitution**: If a matching dataframe is found, the string identifier is replaced with the actual dataframe object
+4. **Error Handling**: If a dataframe reference is used but no matching dataframe exists, the system raises a descriptive error
+
+This approach allows for clean, readable configuration while maintaining the flexibility and type safety of the underlying Polars operations.
 
 ## Relationship to Template Format
 
