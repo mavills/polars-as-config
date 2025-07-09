@@ -9,10 +9,7 @@ def test_args_only():
     """Test using only positional arguments."""
     config = {
         "steps": [
-            {
-                "operation": "scan_csv", 
-                "args": ["tests/test_data/xy.csv"]
-            },
+            {"operation": "scan_csv", "args": ["tests/test_data/xy.csv"]},
         ]
     }
     result = run_config(config)
@@ -29,10 +26,7 @@ def test_kwargs_only():
     """Test using only keyword arguments (existing behavior)."""
     config = {
         "steps": [
-            {
-                "operation": "scan_csv", 
-                "kwargs": {"source": "tests/test_data/xy.csv"}
-            },
+            {"operation": "scan_csv", "kwargs": {"source": "tests/test_data/xy.csv"}},
         ]
     }
     result = run_config(config)
@@ -52,7 +46,7 @@ def test_args_and_kwargs_together():
             {
                 "operation": "scan_csv",
                 "args": ["tests/test_data/xy.csv"],
-                "kwargs": {"has_header": True}
+                "kwargs": {"has_header": True},
             },
         ]
     }
@@ -69,15 +63,10 @@ def test_args_and_kwargs_together():
 def test_args_with_variables():
     """Test using variables in positional arguments."""
     config = {
-        "variables": {
-            "input_file": "tests/test_data/xy.csv"
-        },
+        "variables": {"input_file": "tests/test_data/xy.csv"},
         "steps": [
-            {
-                "operation": "scan_csv",
-                "args": ["$input_file"]
-            },
-        ]
+            {"operation": "scan_csv", "args": ["$input_file"]},
+        ],
     }
     result = run_config(config)
     expected = pl.DataFrame(
@@ -92,11 +81,12 @@ def test_args_with_variables():
 def test_args_with_escaped_variables():
     """Test using escaped variables in positional arguments."""
     config = {
-        "variables": {
-            "input_file": "tests/test_data/xy.csv"
-        },
+        "variables": {"input_file": "tests/test_data/xy.csv"},
         "steps": [
-            {"operation": "scan_csv", "kwargs": {"source": "tests/test_data/string_join.csv"}},
+            {
+                "operation": "scan_csv",
+                "kwargs": {"source": "tests/test_data/string_join.csv"},
+            },
             {
                 "operation": "with_columns",
                 "kwargs": {
@@ -106,7 +96,7 @@ def test_args_with_escaped_variables():
                     },
                 },
             },
-        ]
+        ],
     }
     result = run_config(config)
     expected = pl.DataFrame(
@@ -130,7 +120,9 @@ def test_args_with_expressions():
                     "x_plus_y": {
                         "expr": "add",
                         "on": {"expr": "col", "kwargs": {"name": "x"}},
-                        "args": [{"expr": "col", "kwargs": {"name": "y"}}],  # Using args instead of kwargs for "other"
+                        "args": [
+                            {"expr": "col", "kwargs": {"name": "y"}}
+                        ],  # Using args instead of kwargs for "other"
                     },
                 },
             },
@@ -150,11 +142,12 @@ def test_args_with_expressions():
 def test_mixed_args_types():
     """Test args with different data types."""
     config = {
-        "variables": {
-            "slice_offset": 1
-        },
+        "variables": {"slice_offset": 1},
         "steps": [
-            {"operation": "scan_csv", "kwargs": {"source": "tests/test_data/string_join.csv"}},
+            {
+                "operation": "scan_csv",
+                "kwargs": {"source": "tests/test_data/string_join.csv"},
+            },
             {
                 "operation": "with_columns",
                 "kwargs": {
@@ -165,7 +158,7 @@ def test_mixed_args_types():
                     },
                 },
             },
-        ]
+        ],
     }
     result = run_config(config)
     expected = pl.DataFrame(
@@ -185,7 +178,7 @@ def test_empty_args_and_kwargs():
             {
                 "operation": "scan_csv",
                 "args": [],
-                "kwargs": {"source": "tests/test_data/xy.csv"}
+                "kwargs": {"source": "tests/test_data/xy.csv"},
             },
         ]
     }
@@ -214,7 +207,9 @@ def test_no_args_no_kwargs():
             "y": [2, 2, None, 4],
         }
     )
-    assert_frame_equal(result, expected)  # Note: no .collect() here since it's already collected
+    assert_frame_equal(
+        result, expected
+    )  # Note: no .collect() here since it's already collected
 
 
 def test_args_with_multiple_variables():
@@ -223,18 +218,15 @@ def test_args_with_multiple_variables():
         "variables": {
             "file_path": "tests/test_data/xy.csv",
             "has_header": True,
-            "separator": ","
+            "separator": ",",
         },
         "steps": [
             {
                 "operation": "read_csv",  # Using read_csv instead of scan_csv for this test
                 "args": ["$file_path"],
-                "kwargs": {
-                    "has_header": "$has_header",
-                    "separator": "$separator"
-                }
+                "kwargs": {"has_header": "$has_header", "separator": "$separator"},
             },
-        ]
+        ],
     }
     result = run_config(config)
     expected = pl.DataFrame(
@@ -249,9 +241,7 @@ def test_args_with_multiple_variables():
 def test_complex_nested_args():
     """Test complex nested structure with args in expressions."""
     config = {
-        "variables": {
-            "multiplier": 3
-        },
+        "variables": {"multiplier": 3},
         "steps": [
             {"operation": "scan_csv", "kwargs": {"source": "tests/test_data/xy.csv"}},
             {
@@ -268,7 +258,7 @@ def test_complex_nested_args():
                     },
                 },
             },
-        ]
+        ],
     }
     result = run_config(config)
     expected = pl.DataFrame(
