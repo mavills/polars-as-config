@@ -70,7 +70,13 @@ class PolarsToJson:
                 result["on"] = self.parse_arg(attribute.value)
             result["expr"] = expr
             return result
-
+        elif isinstance(arg, ast.List):
+            return [self.parse_arg(a) for a in arg.elts]
+        elif isinstance(arg, ast.Dict):
+            return {
+                self.parse_arg(k): self.parse_arg(v)
+                for k, v in zip(arg.keys, arg.values, strict=True)
+            }
         else:
             raise NotImplementedError(f"Unsupported argument type: {type(arg)}")
 

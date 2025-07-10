@@ -275,3 +275,43 @@ def test_polars_string_expression():
         }
     ]
     assert PolarsToJson().polars_to_json(code) == expected
+
+
+def test_arguments_type_list():
+    code = "df = df.with_columns(y_contains_o=pl.col('y').str.contains(['o', 'a']))"
+    expected = [
+        {
+            "operation": "with_columns",
+            "args": [],
+            "kwargs": {
+                "y_contains_o": {
+                    "expr": "str.contains",
+                    "args": [["o", "a"]],
+                    "kwargs": {},
+                    "on": {"expr": "col", "args": ["y"], "kwargs": {}},
+                }
+            },
+            "dataframe": "df",
+        }
+    ]
+    assert PolarsToJson().polars_to_json(code) == expected
+
+
+def test_arguments_type_dict():
+    code = "df = df.with_columns(y_contains_o=pl.col('y').str.contains({'o': 'a'}))"
+    expected = [
+        {
+            "operation": "with_columns",
+            "args": [],
+            "kwargs": {
+                "y_contains_o": {
+                    "expr": "str.contains",
+                    "args": [{"o": "a"}],
+                    "kwargs": {},
+                    "on": {"expr": "col", "args": ["y"], "kwargs": {}},
+                }
+            },
+            "dataframe": "df",
+        }
+    ]
+    assert PolarsToJson().polars_to_json(code) == expected
