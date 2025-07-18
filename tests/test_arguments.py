@@ -3,6 +3,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from polars_as_config.config import run_config
+from polars_as_config.polars_to_json import PolarsToJson
 
 
 def test_args_only():
@@ -269,3 +270,25 @@ def test_complex_nested_args():
         }
     )
     assert_frame_equal(result.collect(), expected)
+
+
+def test_variables_nested_in_list():
+    """Test variables nested in dict."""
+    # df = pl.concat([pl.DataFrame({"x": [1, 2, 3]}), pl.DataFrame({"x": [4, 5, 6]})])
+    config = {
+        "steps": [
+            {
+                "operation": "concat",
+                "args": [
+                    [
+                        {"args": [{"x": [1, 2, 3]}], "kwargs": {}, "expr": "DataFrame"},
+                        {"args": [{"x": [4, 5, 6]}], "kwargs": {}, "expr": "DataFrame"},
+                    ]
+                ],
+                "kwargs": {},
+            }
+        ]
+    }
+    result = run_config(config)
+    expected = pl.DataFrame({"x": [1, 2, 3, 4, 5, 6]})
+    assert_frame_equal(result, expected)

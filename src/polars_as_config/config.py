@@ -148,6 +148,17 @@ class Config:
                     )
                 elif "custom_function" in value:
                     kwargs[key] = self.custom_functions[value["custom_function"]]
+            elif isinstance(value, list):
+                kwargs[key] = [
+                    (
+                        self.handle_expr(
+                            expr=i["expr"], expr_content=i, variables=variables
+                        )
+                        if isinstance(i, dict)
+                        else i
+                    )
+                    for i in value
+                ]
         return kwargs
 
     def handle_step(
