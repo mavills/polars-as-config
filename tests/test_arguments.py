@@ -272,7 +272,7 @@ def test_complex_nested_args():
     assert_frame_equal(result.collect(), expected)
 
 
-def test_variables_nested_in_list():
+def test_expressions_nested_in_list():
     """Test variables nested in dict."""
     # df = pl.concat([pl.DataFrame({"x": [1, 2, 3]}), pl.DataFrame({"x": [4, 5, 6]})])
     config = {
@@ -291,4 +291,28 @@ def test_variables_nested_in_list():
     }
     result = run_config(config)
     expected = pl.DataFrame({"x": [1, 2, 3, 4, 5, 6]})
+    assert_frame_equal(result, expected)
+
+
+def test_variables_nested_in_list():
+    code = """
+df = pl.DataFrame({"x": [$a, $b, $c]})
+df2 = pl.DataFrame({"x": [4, 5, 6]})
+df = pl.concat([df, df2])
+"""
+    print(PolarsToJson().polars_to_json(code))
+    expected = pl.DataFrame({"x": [1, 2, 3, 4, 5, 6]})
+    result = run_config(code)
+    assert_frame_equal(result, expected)
+
+
+def test_dataframes_nested_in_list():
+    code = """
+df = pl.DataFrame({"x": [1, 2, 3]})
+df2 = pl.DataFrame({"x": [4, 5, 6]})
+df = pl.concat([df, df2])
+    """
+    print(PolarsToJson().polars_to_json(code))
+    expected = pl.DataFrame({"x": [1, 2, 3, 4, 5, 6]})
+    result = run_config(code)
     assert_frame_equal(result, expected)

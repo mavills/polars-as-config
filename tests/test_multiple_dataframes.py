@@ -281,17 +281,6 @@ class TestIsDataframeFunction:
         assert "count" in type_hints
         assert "flag" in type_hints
 
-    def test_is_dataframe_with_missing_parameter(self):
-        """Test is_dataframe returns False for non-existent parameters."""
-
-        def mock_method(self, existing: str):
-            pass
-
-        signature = inspect.signature(mock_method)
-        type_hints = signature.parameters
-
-        assert self.config.is_dataframe("nonexistent", type_hints) is False
-
     def test_is_dataframe_with_positional_args(self):
         """Test is_dataframe works with positional argument indices."""
 
@@ -323,8 +312,8 @@ class TestIsDataframeFunction:
         # Should return False when no type hints are available
         # The current implementation may have issues, so we test graceful handling
         try:
-            result1 = self.config.is_dataframe("param1", type_hints)
-            result2 = self.config.is_dataframe("param2", type_hints)
+            result1 = self.config.is_dataframe(type_hints["param1"].annotation)
+            result2 = self.config.is_dataframe(type_hints["param2"].annotation)
             assert isinstance(result1, bool)
             assert isinstance(result2, bool)
         except (TypeError, NameError):
