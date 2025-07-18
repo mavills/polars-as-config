@@ -315,3 +315,25 @@ def test_arguments_type_dict():
         }
     ]
     assert PolarsToJson().polars_to_json(code) == expected
+
+
+def test_attribute_as_argument():
+    code = """df = df.select(
+        x=pl.col("x").map_elements(pl.col("y"), return_dtype=pl.Utf8)
+    )"""
+    expected = [
+        {
+            "operation": "select",
+            "args": [],
+            "kwargs": {
+                "x": {
+                    "args": [{"args": ["y"], "kwargs": {}, "expr": "col"}],
+                    "kwargs": {"return_dtype": "Utf8"},
+                    "on": {"args": ["x"], "kwargs": {}, "expr": "col"},
+                    "expr": "map_elements",
+                }
+            },
+            "dataframe": "df",
+        }
+    ]
+    assert PolarsToJson().polars_to_json(code) == expected

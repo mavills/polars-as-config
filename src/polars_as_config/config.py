@@ -1,25 +1,38 @@
 import inspect
 from inspect import Parameter
-from typing import Callable, Optional
+from typing import Callable, ForwardRef, Optional, Union, get_args, get_origin
 
 import polars as pl
 from polars import DataFrame, LazyFrame
+from polars._typing import PolarsDataType  # noqa: F401, needed for type checking
+from polars.functions.col import Col
 
 
 class Config:
     custom_functions: dict[str, Callable] = {}
 
     def __init__(self):
-        self.current_dataframes: dict[str, pl.DataFrame] = {}
+        self.current_dataframes: dict[str | None, pl.DataFrame] = {}
 
     def add_custom_functions(self, functions: dict) -> "Config":
         self.custom_functions.update(functions)
         return self
 
-    def is_dataframe(self, key: str, type_hints: dict[str, Parameter]) -> bool:
-        """
-        Check if the key is a dataframe type hint.
-        """
+    def _get_parameter_types(self, method: Callable) -> dict[str, Parameter]:
+        try:
+            return inspect.signature(method).parameters
+        except TypeError:
+            pass
+        if isinstance(method, Col):
+            return {
+                "name": Parameter(
+                    "name", Parameter.POSITIONAL_OR_KEYWORD, annotation="str"
+                )
+            }
+
+    def _is_type(
+        self, key: str, type_hints: dict[str, Parameter], type_to_check: type
+    ) -> bool:
         if key not in type_hints:
             return False
         if isinstance(key, int):
@@ -33,12 +46,38 @@ class Config:
             param = positionals[key]
         else:
             param = type_hints[key]
+
         try:
+            annotation = eval(param.annotation)
+            origin = get_origin(annotation)
             # Check literally for DataFrame; this is why we need the import;
             # So that the module is loaded and can detect the type.
-            return eval(param.annotation) in [DataFrame, LazyFrame]
+            if origin is Union:
+                for arg in get_args(annotation):
+                    if type_to_check == arg:
+                        return True
+                    if isinstance(arg, ForwardRef):
+                        if arg.__forward_arg__ == type_to_check.__name__:
+                            return True
+                return False
+            else:
+                return type_to_check == annotation or isinstance(
+                    annotation, type_to_check
+                )
         except NameError:
+            print(f"NameError: {param.annotation}")
             return False
+
+    def is_dataframe(self, key: str, type_hints: dict[str, Parameter]) -> bool:
+        """
+        Check if the key is a dataframe type hint.
+        """
+        return self._is_type(key, type_hints, DataFrame) or self._is_type(
+            key, type_hints, LazyFrame
+        )
+
+    def is_polars_type(self, key: str, type_hints: dict[str, Parameter]) -> bool:
+        return self._is_type(key, type_hints, pl.DataType)
 
     def handle_expr(
         self,
@@ -46,16 +85,6 @@ class Config:
         expr_content: dict,
         variables: dict,
     ) -> pl.Expr:
-        if "args" in expr_content:
-            expr_content["args"] = [
-                self.parse_kwargs({i: expr_content["args"][i]}, variables)[i]
-                for i in range(len(expr_content["args"]))
-            ]
-        if "kwargs" in expr_content:
-            expr_content["kwargs"] = self.parse_kwargs(
-                expr_content["kwargs"], variables
-            )
-
         subject = pl
         if "on" in expr_content:
             on_expr = self.handle_expr(
@@ -68,9 +97,22 @@ class Config:
         if "." in expr:
             prefix, expr = expr.split(".", 1)
             subject = getattr(subject, prefix)
-        return getattr(subject, expr)(
-            *expr_content.get("args", []), **expr_content.get("kwargs", {})
-        )
+
+        method = getattr(subject, expr)
+        parameter_types = self._get_parameter_types(method)
+
+        if "args" in expr_content:
+            expr_content["args"] = [
+                self.parse_kwargs(
+                    {i: expr_content["args"][i]}, variables, type_hints=parameter_types
+                )[i]
+                for i in range(len(expr_content["args"]))
+            ]
+        if "kwargs" in expr_content:
+            expr_content["kwargs"] = self.parse_kwargs(
+                expr_content["kwargs"], variables, type_hints=parameter_types
+            )
+        return method(*expr_content.get("args", []), **expr_content.get("kwargs", {}))
 
     def parse_kwargs(self, kwargs: dict, variables: dict, type_hints: dict = None):
         """
@@ -87,6 +129,12 @@ class Config:
                             f"in the previous steps."
                         )
                     kwargs[key] = self.current_dataframes[value]
+                elif (
+                    type_hints is not None
+                    and getattr(pl, value, None)
+                    and self.is_polars_type(key, type_hints)
+                ):
+                    kwargs[key] = getattr(pl, value)
                 elif value.startswith("$$"):
                     # Handle escaped dollar sign - replace $$ with $
                     kwargs[key] = value[1:]  # Remove the first $ to unescape
@@ -112,7 +160,7 @@ class Config:
             method = getattr(pl, operation)
         else:
             method = getattr(current_data, operation)
-        parameter_types = inspect.signature(method).parameters
+        parameter_types = self._get_parameter_types(method)
 
         # Hack our way into using the same parsing logic for args and kwargs
         parsed_args = [
