@@ -1,4 +1,3 @@
-from typing import Any
 import polars as pl
 
 from polars_as_config.config import Config

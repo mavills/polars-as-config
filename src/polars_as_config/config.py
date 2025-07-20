@@ -1,18 +1,30 @@
 import inspect
+from collections.abc import Iterable  # noqa: F401, needed for type checking
 from inspect import Parameter
-from typing import Any, Callable, ForwardRef, Optional, Union, get_args, get_origin
+from typing import (
+    Any,
+    Callable,
+    ForwardRef,
+    Optional,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
 
 import polars as pl
 from polars import DataFrame, LazyFrame
-from polars._typing import PolarsDataType  # noqa: F401, needed for type checking
+from polars._typing import (  # noqa: F401, needed for type checking
+    PolarsDataType,
+    PolarsType,
+)
 from polars.functions.col import Col
 
 
 class Config:
-    custom_functions: dict[str, Callable] = {}
-
     def __init__(self):
         self.current_dataframes: dict[str | None, pl.DataFrame] = {}
+        self.custom_functions: dict[str, Callable] = {}
 
     def add_custom_functions(self, functions: dict) -> "Config":
         self.custom_functions.update(functions)
@@ -33,8 +45,8 @@ class Config:
     def _get_type_from_hints(
         self, key: str | int, type_hints: dict[str, Parameter]
     ) -> type | None:
-        if key not in type_hints:
-            return None
+        # if key not in type_hints:
+        #     return None
         if isinstance(key, int):
             args = list(type_hints.values())
             positionals = [
@@ -43,8 +55,15 @@ class Config:
                 if p.kind
                 in [Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD]
             ]
+            if key >= len(positionals):
+                # This could be treated as an error, but it is possible that
+                # the type hint is a var-positional argument ("any number of
+                # positional arguments", e.g. def f(*args: Any))
+                return None
             param = positionals[key]
         else:
+            if key not in type_hints:
+                return None
             param = type_hints[key]
         try:
             annotation = eval(param.annotation)
@@ -52,13 +71,18 @@ class Config:
             return None
         return annotation
 
-    def _is_type(self, annotation: type | None, type_to_check: type) -> bool:
+    def _is_type(self, annotation: type | TypeVar | None, type_to_check: type) -> bool:
         """
         Check if the annotation is a type.
         Returns false if the annotation is None.
         """
         if annotation is None:
             return False
+        if isinstance(annotation, TypeVar):
+            if type_to_check.__name__ in annotation.__constraints__:
+                return True
+            return False
+
         origin = get_origin(annotation)
         # Check literally for DataFrame; this is why we need the import;
         # So that the module is loaded and can detect the type.
@@ -119,8 +143,8 @@ class Config:
             prefix, expr = expr.split(".", 1)
             subject = getattr(subject, prefix)
 
-        method = getattr(subject, expr)
-        parameter_types = self._get_parameter_types(method)
+        to_call_method = getattr(subject, expr)
+        parameter_types = self._get_parameter_types(to_call_method)
 
         if "args" in expr_content:
             expr_content["args"] = [
@@ -133,7 +157,9 @@ class Config:
             expr_content["kwargs"] = self.parse_kwargs(
                 expr_content["kwargs"], variables, type_hints=parameter_types
             )
-        return method(*expr_content.get("args", []), **expr_content.get("kwargs", {}))
+        return to_call_method(
+            *expr_content.get("args", []), **expr_content.get("kwargs", {})
+        )
 
     def parse_nesting(self, value: Any, variables: dict) -> str:
         if isinstance(value, list):
@@ -151,8 +177,8 @@ class Config:
         if self.is_dataframe(type_hint):
             if value not in self.current_dataframes:
                 raise ValueError(
-                    f"Dataframe {value} not found in current dataframes."
-                    f"It is possible that the dataframe was not created"
+                    f"Dataframe {value} not found in current dataframes. "
+                    f"It is possible that the dataframe was not created "
                     f"in the previous steps."
                 )
             return self.current_dataframes[value]
@@ -177,22 +203,23 @@ class Config:
                 expr=value["expr"], expr_content=value, variables=variables
             )
         elif "custom_function" in value:
+            if value["custom_function"] not in self.custom_functions:
+                raise ValueError(
+                    f"Custom function {value['custom_function']} not found in "
+                    f"predefined custom functions. "
+                    f"It is possible that the custom function was not added "
+                    f"in the configuration. "
+                )
             return self.custom_functions[value["custom_function"]]
         return {k: self.parse_value(v, variables, None) for k, v in value.items()}
-
-    def parse_value(self, value: str | dict | list, variables: dict, type_hint):
-        if isinstance(value, str):
-            return self.parse_string(value, variables, type_hint)
-        elif isinstance(value, dict):
-            return self.parse_dict(value, variables, type_hint)
-        elif isinstance(value, list):
-            return self.parse_list(value, variables, type_hint)
 
     def get_list_subtype(self, type_hint):
         if type_hint is None:
             return None
         origin = get_origin(type_hint)
-        if origin is list:
+        if origin is None:
+            return type_hint
+        if issubclass(origin, Iterable):
             return get_args(type_hint)[0]
         return type_hint
 
@@ -200,34 +227,43 @@ class Config:
         subtype = self.get_list_subtype(type_hint)
         return [self.parse_value(i, variables, subtype) for i in value]
 
+    def parse_value(self, value: str | dict | list | Any, variables: dict, type_hint):
+        if isinstance(value, str):
+            return self.parse_string(value, variables, type_hint)
+        elif isinstance(value, dict):
+            return self.parse_dict(value, variables, type_hint)
+        elif isinstance(value, list):
+            return self.parse_list(value, variables, type_hint)
+        return value
+
     def parse_kwargs(self, kwargs: dict, variables: dict, type_hints: dict = None):
         """
         Parse the kwargs of a step or expression.
         """
         for key, value in kwargs.items():
-            kwargs[key] = self.parse_value(value, variables, type_hints.get(key))
             type_to_check = self._get_type_from_hints(key, type_hints)
-            if isinstance(value, str):
-                # Try to parse the value as a dataframe
-                kwargs[key] = self.parse_string(value, variables, type_to_check)
-            elif isinstance(value, dict):
-                if "expr" in value:
-                    kwargs[key] = self.handle_expr(
-                        expr=value["expr"], expr_content=value, variables=variables
-                    )
-                elif "custom_function" in value:
-                    kwargs[key] = self.custom_functions[value["custom_function"]]
-            elif isinstance(value, list):
-                kwargs[key] = [
-                    (
-                        self.handle_expr(
-                            expr=i["expr"], expr_content=i, variables=variables
-                        )
-                        if isinstance(i, dict)
-                        else i
-                    )
-                    for i in value
-                ]
+            kwargs[key] = self.parse_value(value, variables, type_to_check)
+            # if isinstance(value, str):
+            #     # Try to parse the value as a dataframe
+            #     kwargs[key] = self.parse_string(value, variables, type_to_check)
+            # elif isinstance(value, dict):
+            #     if "expr" in value:
+            #         kwargs[key] = self.handle_expr(
+            #             expr=value["expr"], expr_content=value, variables=variables
+            #         )
+            #     elif "custom_function" in value:
+            #         kwargs[key] = self.custom_functions[value["custom_function"]]
+            # elif isinstance(value, list):
+            #     kwargs[key] = [
+            #         (
+            #             self.handle_expr(
+            #                 expr=i["expr"], expr_content=i, variables=variables
+            #             )
+            #             if isinstance(i, dict)
+            #             else i
+            #         )
+            #         for i in value
+            #     ]
         return kwargs
 
     def handle_step(

@@ -48,7 +48,10 @@ def test_hash_function_basic():
                     "row_hash": {
                         "expr": "map_elements",
                         "on": {"expr": "struct", "args": [{"expr": "all"}]},
-                        "kwargs": {"function": {"custom_function": "hash_row"}},
+                        "kwargs": {
+                            "function": {"custom_function": "hash_row"},
+                            "return_dtype": "Utf8",
+                        },
                     }
                 },
             },
@@ -95,7 +98,10 @@ def test_hash_function_with_transformations():
                     "row_hash": {
                         "expr": "map_elements",
                         "on": {"expr": "struct", "args": [{"expr": "all"}]},
-                        "kwargs": {"function": {"custom_function": "hash_row"}},
+                        "kwargs": {
+                            "function": {"custom_function": "hash_row"},
+                            "return_dtype": "Utf8",
+                        },
                     }
                 },
             },
@@ -122,7 +128,10 @@ def test_simple_custom_function():
                     "x_doubled": {
                         "expr": "map_elements",
                         "on": {"expr": "col", "kwargs": {"name": "x"}},
-                        "kwargs": {"function": {"custom_function": "multiply_by_two"}},
+                        "kwargs": {
+                            "function": {"custom_function": "multiply_by_two"},
+                            "return_dtype": "Int64",
+                        },
                     }
                 },
             },
@@ -162,7 +171,10 @@ def test_custom_function_with_struct():
                                 {"expr": "col", "kwargs": {"name": "second"}},
                             ],
                         },
-                        "kwargs": {"function": {"custom_function": "format_name"}},
+                        "kwargs": {
+                            "function": {"custom_function": "format_name"},
+                            "return_dtype": "Utf8",
+                        },
                     }
                 },
             },
@@ -193,12 +205,18 @@ def test_multiple_custom_functions():
                     "x_doubled": {
                         "expr": "map_elements",
                         "on": {"expr": "col", "kwargs": {"name": "x"}},
-                        "kwargs": {"function": {"custom_function": "multiply_by_two"}},
+                        "kwargs": {
+                            "function": {"custom_function": "multiply_by_two"},
+                            "return_dtype": "Int64",
+                        },
                     },
                     "row_hash": {
                         "expr": "map_elements",
                         "on": {"expr": "struct", "args": [{"expr": "all"}]},
-                        "kwargs": {"function": {"custom_function": "hash_row"}},
+                        "kwargs": {
+                            "function": {"custom_function": "hash_row"},
+                            "return_dtype": "Utf8",
+                        },
                     },
                 },
             },
@@ -219,7 +237,10 @@ def test_multiple_custom_functions():
 
 
 def test_custom_function_with_variables():
-    """Test custom functions combined with variable substitution. This should not work; this is not implemented that way."""
+    """
+    Test custom functions combined with variable substitution.
+    This should not work; this is not implemented that way.
+    """
     config = {
         "variables": {"multiplier_func": "multiply_by_two"},
         "steps": [
@@ -230,7 +251,10 @@ def test_custom_function_with_variables():
                     "x_doubled": {
                         "expr": "map_elements",
                         "on": {"expr": "col", "kwargs": {"name": "x"}},
-                        "kwargs": {"function": {"custom_function": "$multiplier_func"}},
+                        "kwargs": {
+                            "function": {"custom_function": "$multiplier_func"},
+                            "return_dtype": "Int64",
+                        },
                     }
                 },
             },
@@ -238,7 +262,7 @@ def test_custom_function_with_variables():
     }
 
     custom_config = Config().add_custom_functions({"multiply_by_two": multiply_by_two})
-    with pytest.raises(KeyError, match="'\\$multiplier_func'"):
+    with pytest.raises(ValueError):
         custom_config.run_config(config)
 
 
@@ -254,7 +278,8 @@ def test_custom_function_error_handling():
                         "expr": "map_elements",
                         "on": {"expr": "col", "kwargs": {"name": "x"}},
                         "kwargs": {
-                            "function": {"custom_function": "nonexistent_function"}
+                            "function": {"custom_function": "nonexistent_function"},
+                            "return_dtype": "Utf8",
                         },
                     }
                 },
@@ -263,7 +288,7 @@ def test_custom_function_error_handling():
     }
 
     custom_config = Config()  # No custom functions added
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError):
         custom_config.run_config(config)
 
 
@@ -278,7 +303,10 @@ def test_hash_function_deterministic():
                     "row_hash": {
                         "expr": "map_elements",
                         "on": {"expr": "struct", "args": [{"expr": "all"}]},
-                        "kwargs": {"function": {"custom_function": "hash_row"}},
+                        "kwargs": {
+                            "function": {"custom_function": "hash_row"},
+                            "return_dtype": "Utf8",
+                        },
                     }
                 },
             },
@@ -307,7 +335,10 @@ def test_config_builder_pattern():
                     "x_doubled": {
                         "expr": "map_elements",
                         "on": {"expr": "col", "kwargs": {"name": "x"}},
-                        "kwargs": {"function": {"custom_function": "multiply_by_two"}},
+                        "kwargs": {
+                            "function": {"custom_function": "multiply_by_two"},
+                            "return_dtype": "Int64",
+                        },
                     }
                 },
             },
@@ -350,7 +381,10 @@ def test_hash_function_with_different_data_types():
                     "row_hash": {
                         "expr": "map_elements",
                         "on": {"expr": "struct", "args": [{"expr": "all"}]},
-                        "kwargs": {"function": {"custom_function": "hash_row"}},
+                        "kwargs": {
+                            "function": {"custom_function": "hash_row"},
+                            "return_dtype": "Utf8",
+                        },
                     }
                 },
             }

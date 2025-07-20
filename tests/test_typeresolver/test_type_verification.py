@@ -2,6 +2,8 @@ import inspect
 from typing import ForwardRef, Union
 
 import polars as pl
+from polars._typing import PolarsType
+from typing_extensions import TypeVar
 
 from polars_as_config.config import Config
 
@@ -86,12 +88,12 @@ class TestIsType:
         config = Config()
         assert config._is_type(Union[ForwardRef("str"), int], str)
 
-    def test_forward_ref_specific_case_pl_concat(self):
+    def test_type_vars(self):
         """
-        A specific case is pl.concat, which has a forward reference to Expr.
+        A specific case is pl.concat for example, which has a typing variable.
         """
         config = Config()
-        signature = inspect.signature(pl.concat)
-        print(signature.parameters)
-        assert False
-        assert config._is_type(Union[ForwardRef("str"), int], str)
+        assert config._is_type(
+            PolarsType,
+            pl.DataFrame,
+        )

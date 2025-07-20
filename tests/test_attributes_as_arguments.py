@@ -31,13 +31,9 @@ def test_attribute_as_argument():
         ],
     }
     df = pl.scan_csv("tests/test_data/xy.csv")
-    df = df.select(
-        x=pl.col("x").map_elements(change_to_constant, return_dtype=pl.Utf8)
-    )
+    df = df.select(x=pl.col("x").map_elements(change_to_constant, return_dtype=pl.Utf8))
 
-    expected = pl.DataFrame(
-        {"x": ["constant", "constant", None, "constant"]}
-    )
+    expected = pl.DataFrame({"x": ["constant", "constant", None, "constant"]})
 
     assert_frame_equal(df.collect(), expected)
 
