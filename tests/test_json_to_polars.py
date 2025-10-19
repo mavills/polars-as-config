@@ -23,11 +23,10 @@ def test_to_code():
             {"operation": "collect"},
         ]
     }
-    code = JsonToPolars().json_to_polars(config["steps"], format="dataframe")
+    code = JsonToPolars().json_to_polars(config["steps"])
     expected = """df = polars.read_csv('data.csv')
 df = df.with_columns(polars.add(polars.col('a'), 10).alias('new_column', brrr='a'))
 df = df.collect()"""
-    print(code)
     assert code == expected
 
 
@@ -35,7 +34,5 @@ def test_polars_to_json_to_polars():
     expected = """df = polars.read_csv('data.csv')
 df = df.with_columns(polars.add(polars.col('a'), 10).alias('new_column', brrr='a'))
 df = df.collect()"""
-    code = JsonToPolars().json_to_polars(
-        PolarsToJson().polars_to_json(expected), format="dataframe"
-    )
+    code = JsonToPolars().json_to_polars(PolarsToJson().polars_to_json(expected))
     assert code == expected

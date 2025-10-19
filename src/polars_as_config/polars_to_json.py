@@ -123,13 +123,14 @@ class PolarsToJson:
         name = value.id
         # We can now verify that the dataframe name is valid or if it is polars,
         # but we don't need to do anything with it.
+        dataframe_in = None
         if name == "polars" or name == "pl":
             pass
         elif name in self.dataframes:
-            # Add the output dataframe to the list of allowed dataframes.
-            self.dataframes.add(dataframe_name)
+            dataframe_in = name
         else:
             raise ValueError(f"Invalid dataframe name: {name}")
+        self.dataframes.add(dataframe_name)
 
         # The thing we care about now is the function call and its arguments.
         function_name = node.value.func.attr
@@ -144,12 +145,15 @@ class PolarsToJson:
             parsed_arg = self.parse_arg(kwarg.value)
             kwargs[kwarg.arg] = parsed_arg
 
-        return {
+        step = {
             "operation": function_name,
             "args": args,
             "kwargs": kwargs,
-            "dataframe": dataframe_name,
+            "dataframe_out": dataframe_name,
         }
+        if dataframe_in:
+            step["dataframe_in"] = dataframe_in
+        return step
 
     def polars_to_json(self, code: str) -> list[dict]:
         tree = ast.parse(code)

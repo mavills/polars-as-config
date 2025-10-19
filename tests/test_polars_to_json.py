@@ -8,7 +8,7 @@ def test_single_operation():
             "operation": "read_csv",
             "args": [],
             "kwargs": {},
-            "dataframe": "df",
+            "dataframe_out": "df",
         }
     ]
     assert PolarsToJson().polars_to_json(code) == expected
@@ -21,7 +21,7 @@ def test_single_operation_with_constant_args():
             "operation": "read_csv",
             "args": ["data.csv"],
             "kwargs": {},
-            "dataframe": "df",
+            "dataframe_out": "df",
         }
     ]
     assert PolarsToJson().polars_to_json(code) == expected
@@ -34,7 +34,7 @@ def test_single_operation_with_constant_kwargs():
             "operation": "read_csv",
             "args": [],
             "kwargs": {"source": "data.csv"},
-            "dataframe": "df",
+            "dataframe_out": "df",
         }
     ]
     assert PolarsToJson().polars_to_json(code) == expected
@@ -47,7 +47,7 @@ def test_single_operation_with_constant_args_and_kwargs():
             "operation": "read_csv",
             "args": ["data.csv"],
             "kwargs": {"has_header": True},
-            "dataframe": "df",
+            "dataframe_out": "df",
         }
     ]
     assert PolarsToJson().polars_to_json(code) == expected
@@ -61,13 +61,14 @@ df = df.sum()"""
             "operation": "read_csv",
             "args": ["data.csv"],
             "kwargs": {},
-            "dataframe": "df",
+            "dataframe_out": "df",
         },
         {
             "operation": "sum",
             "args": [],
             "kwargs": {},
-            "dataframe": "df",
+            "dataframe_out": "df",
+            "dataframe_in": "df",
         },
     ]
     assert PolarsToJson().polars_to_json(code) == expected
@@ -84,31 +85,34 @@ df2 = df2.join(df1)"""
             "operation": "read_csv",
             "args": ["data.csv"],
             "kwargs": {},
-            "dataframe": "df1",
+            "dataframe_out": "df1",
         },
         {
             "operation": "read_csv",
             "args": ["data2.csv"],
             "kwargs": {},
-            "dataframe": "df2",
+            "dataframe_out": "df2",
         },
         {
             "operation": "sum",
             "args": [],
             "kwargs": {},
-            "dataframe": "df1",
+            "dataframe_out": "df1",
+            "dataframe_in": "df1",
         },
         {
             "operation": "sum",
             "args": [],
             "kwargs": {},
-            "dataframe": "df2",
+            "dataframe_out": "df2",
+            "dataframe_in": "df2",
         },
         {
             "operation": "join",
             "args": ["df1"],
             "kwargs": {},
-            "dataframe": "df2",
+            "dataframe_out": "df2",
+            "dataframe_in": "df2",
         },
     ]
     assert PolarsToJson().polars_to_json(code) == expected
@@ -137,10 +141,13 @@ def test_single_nested_operation():
                 }
             ],
             "kwargs": {},
-            "dataframe": "df",
+            "dataframe_out": "df",
+            "dataframe_in": "df",
         },
     ]
-    assert PolarsToJson().polars_to_json(code) == expected
+    p2j = PolarsToJson()
+    p2j.dataframes.add("df")
+    assert p2j.polars_to_json(code) == expected
 
 
 def test_multiple_nested_operations():
@@ -167,7 +174,7 @@ df = df.select(pl.col('b').add(1).alias('c'))"""
                 }
             ],
             "kwargs": {},
-            "dataframe": "df",
+            "dataframe_out": "df",
         },
         {
             "operation": "select",
@@ -189,7 +196,8 @@ df = df.select(pl.col('b').add(1).alias('c'))"""
                 }
             ],
             "kwargs": {},
-            "dataframe": "df",
+            "dataframe_out": "df",
+            "dataframe_in": "df",
         },
     ]
     assert PolarsToJson().polars_to_json(code) == expected
@@ -203,7 +211,7 @@ df = df.with_columns(row_hash=pl.struct(pl.all()).map_elements(function=hash_row
             "operation": "read_csv",
             "args": [],
             "kwargs": {"source": "tests/test_data/xy.csv"},
-            "dataframe": "df",
+            "dataframe_out": "df",
         },
         {
             "operation": "with_columns",
@@ -220,7 +228,8 @@ df = df.with_columns(row_hash=pl.struct(pl.all()).map_elements(function=hash_row
                     "kwargs": {"function": {"custom_function": "hash_row"}},
                 }
             },
-            "dataframe": "df",
+            "dataframe_out": "df",
+            "dataframe_in": "df",
         },
     ]
     assert PolarsToJson(custom_functions={"hash_row"}).polars_to_json(code) == expected
@@ -234,7 +243,7 @@ df = df.with_columns(row_hash=pl.struct(pl.all()).map_elements(function=hash_row
             "operation": "read_csv",
             "args": [],
             "kwargs": {"source": "tests/test_data/xy.csv"},
-            "dataframe": "df",
+            "dataframe_out": "df",
         },
         {
             "operation": "with_columns",
@@ -251,7 +260,8 @@ df = df.with_columns(row_hash=pl.struct(pl.all()).map_elements(function=hash_row
                     "kwargs": {"function": {"custom_function": "hash_row"}},
                 }
             },
-            "dataframe": "df",
+            "dataframe_out": "df",
+            "dataframe_in": "df",
         },
     ]
     assert PolarsToJson(allow_function_discovery=True).polars_to_json(code) == expected
@@ -271,10 +281,13 @@ def test_polars_string_expression():
                     "on": {"expr": "col", "args": ["y"], "kwargs": {}},
                 }
             },
-            "dataframe": "df",
+            "dataframe_out": "df",
+            "dataframe_in": "df",
         }
     ]
-    assert PolarsToJson().polars_to_json(code) == expected
+    p2j = PolarsToJson()
+    p2j.dataframes.add("df")
+    assert p2j.polars_to_json(code) == expected
 
 
 def test_arguments_type_list():
@@ -291,10 +304,13 @@ def test_arguments_type_list():
                     "on": {"expr": "col", "args": ["y"], "kwargs": {}},
                 }
             },
-            "dataframe": "df",
+            "dataframe_out": "df",
+            "dataframe_in": "df",
         }
     ]
-    assert PolarsToJson().polars_to_json(code) == expected
+    p2j = PolarsToJson()
+    p2j.dataframes.add("df")
+    assert p2j.polars_to_json(code) == expected
 
 
 def test_arguments_type_dict():
@@ -311,10 +327,13 @@ def test_arguments_type_dict():
                     "on": {"expr": "col", "args": ["y"], "kwargs": {}},
                 }
             },
-            "dataframe": "df",
+            "dataframe_out": "df",
+            "dataframe_in": "df",
         }
     ]
-    assert PolarsToJson().polars_to_json(code) == expected
+    p2j = PolarsToJson()
+    p2j.dataframes.add("df")
+    assert p2j.polars_to_json(code) == expected
 
 
 def test_attribute_as_argument():
@@ -333,7 +352,10 @@ def test_attribute_as_argument():
                     "expr": "map_elements",
                 }
             },
-            "dataframe": "df",
+            "dataframe_out": "df",
+            "dataframe_in": "df",
         }
     ]
-    assert PolarsToJson().polars_to_json(code) == expected
+    p2j = PolarsToJson()
+    p2j.dataframes.add("df")
+    assert p2j.polars_to_json(code) == expected

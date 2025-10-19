@@ -319,9 +319,16 @@ class Config:
         variables: dict[str, str] = config.get("variables") or {}
         steps: list[Step] = config["steps"]
         for step in steps:
+            if "dataframe" in step and (
+                "dataframe_in" in step or "dataframe_out" in step
+            ):
+                raise ValueError("use of old and new `dataframe` syntax is not allowed")
             dataframe_name = step.get("dataframe", None)
-            self.current_dataframes[dataframe_name] = self.handle_step(
-                self.current_dataframes.get(dataframe_name), step, variables
+            dataframe_in_name = step.get("dataframe_in", dataframe_name)
+            dataframe_out_name = step.get("dataframe_out", dataframe_name)
+
+            self.current_dataframes[dataframe_out_name] = self.handle_step(
+                self.current_dataframes.get(dataframe_in_name), step, variables
             )
         return self.current_dataframes
 
