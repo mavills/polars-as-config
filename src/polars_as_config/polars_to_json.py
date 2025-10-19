@@ -1,4 +1,7 @@
 import ast
+import inspect
+import textwrap
+from typing import Callable
 
 
 class PolarsToJson:
@@ -149,4 +152,12 @@ class PolarsToJson:
                 # at this point we have a single step at our hands;
                 # We can parse it as an individual operation, operating on a dataframe
                 operations.append(self.parse_operation(node))
+        return operations
+
+    def polars_function_to_json(self, function: Callable) -> dict:
+        # Get the source code of the function.
+        code = inspect.getsource(function)
+        # Clip off the function name, de-indent the rest, and return the code.
+        code = textwrap.dedent("\n".join(code.split("\n")[1:]))
+        operations = self.polars_to_json(code)
         return operations
