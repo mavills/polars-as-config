@@ -1,20 +1,20 @@
 import ast
 import inspect
 import textwrap
-from typing import Callable
+from typing import Any, Callable
 
 
 class PolarsToJson:
     def __init__(
         self,
-        custom_functions: set = None,
+        custom_functions: set[str] | None = None,
         allow_function_discovery: bool = False,
     ):
-        self.dataframes = set()
+        self.dataframes: set[str] = set()
         self.custom_functions = custom_functions or set()
         self.allow_function_discovery = allow_function_discovery
 
-    def parse_attribute(self, attribute: ast.Attribute) -> str:
+    def parse_attribute(self, attribute: ast.Attribute) -> tuple[str, ast.Attribute]:
         """
         Parses an attribute expression and returns
         the expression and the attribute.
@@ -25,7 +25,7 @@ class PolarsToJson:
             attribute = attribute.value
         return expr, attribute
 
-    def parse_arg(self, arg: ast.expr) -> dict:
+    def parse_arg(self, arg: ast.expr | None) -> Any:
         if isinstance(arg, ast.Constant):
             return arg.value
         elif isinstance(arg, ast.Name):
@@ -49,10 +49,11 @@ class PolarsToJson:
         elif isinstance(arg, ast.Call):
             # A call can either be on the polars object again, or on another expression.
             # We will parse the call recursively.
-            result = {}
+            result: dict[str, Any] = {}
             # 1. Parse the expression name, then args, then the "on" attribute.
             # The function must be an attribute of the polars object or a polars expression.
-            assert isinstance(arg.func, ast.Attribute)
+            if not isinstance(arg.func, ast.Attribute):
+                raise ValueError(f"Call must be on Attribute, got {arg.func}")
             expr, attribute = self.parse_attribute(arg.func)
             # 2. Parse the args and kwargs.
             args = []
@@ -68,7 +69,10 @@ class PolarsToJson:
             # 3. Parse the "on" attribute.
             if isinstance(attribute.value, ast.Name):
                 # If the value is a name, it can only be called on the polars object.
-                assert attribute.value.id in ["pl", "polars"]
+                if attribute.value.id not in ["pl", "polars"]:
+                    raise ValueError(
+                        f"Call must be on polars object, got {attribute.value.id}"
+                    )
             else:
                 result["on"] = self.parse_arg(attribute.value)
             result["expr"] = expr
@@ -99,29 +103,34 @@ class PolarsToJson:
             raise ValueError("Each assignment must have only one target")
         target = node.targets[0]
         # the target must be a variable name
-        assert isinstance(target, ast.Name)
+        if not isinstance(target, ast.Name):
+            raise ValueError("Assignment targets must be variable names")
         dataframe_name = target.id
 
         # The value must be a Call.
-        assert isinstance(node.value, ast.Call)
+        if not isinstance(node.value, ast.Call):
+            raise ValueError("Assignment values must be function calls")
         # The function must be called on an attribute;
         # either polars, or a dataframe name.
         # In our current implementation, the dataframe name must match the target.
-        assert isinstance(node.value.func, ast.Attribute)
+        if not isinstance(node.value.func, ast.Attribute):
+            raise ValueError("Assignment values must be function calls as attributes")
         # The value of the attribute is polars or a dataframe
         value = node.value.func.value
-        assert isinstance(value, ast.Name)
+        if not isinstance(value, ast.Name):
+            raise ValueError("Call must be on a dataframe or polars module")
         # The id is polars or a dataframe name
         name = value.id
         # We can now verify that the dataframe name is valid or if it is polars,
         # but we don't need to do anything with it.
+        dataframe_in = None
         if name == "polars" or name == "pl":
             pass
-        elif name == dataframe_name:
-            # Add the dataframe to the list of allowed dataframes.
-            self.dataframes.add(dataframe_name)
+        elif name in self.dataframes:
+            dataframe_in = name
         else:
             raise ValueError(f"Invalid dataframe name: {name}")
+        self.dataframes.add(dataframe_name)
 
         # The thing we care about now is the function call and its arguments.
         function_name = node.value.func.attr
@@ -136,14 +145,17 @@ class PolarsToJson:
             parsed_arg = self.parse_arg(kwarg.value)
             kwargs[kwarg.arg] = parsed_arg
 
-        return {
+        step = {
             "operation": function_name,
             "args": args,
             "kwargs": kwargs,
-            "dataframe": dataframe_name,
+            "dataframe_out": dataframe_name,
         }
+        if dataframe_in:
+            step["dataframe_in"] = dataframe_in
+        return step
 
-    def polars_to_json(self, code: str) -> dict:
+    def polars_to_json(self, code: str) -> list[dict]:
         tree = ast.parse(code)
         # Get the assignments
         operations = []
@@ -154,7 +166,7 @@ class PolarsToJson:
                 operations.append(self.parse_operation(node))
         return operations
 
-    def polars_function_to_json(self, function: Callable) -> dict:
+    def polars_function_to_json(self, function: Callable) -> list[dict]:
         # Get the source code of the function.
         code = inspect.getsource(function)
         # Clip off the function name, de-indent the rest, and return the code.

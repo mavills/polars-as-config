@@ -1,11 +1,13 @@
 import inspect
 from collections.abc import Iterable  # noqa: F401, needed for type checking
 from inspect import Parameter
+from types import ModuleType
 from typing import (
     Any,
     Callable,
     ForwardRef,
     Optional,
+    TypedDict,
     TypeVar,
     Union,
     get_args,
@@ -21,6 +23,20 @@ from polars._typing import (  # noqa: F401, needed for type checking
 from polars.functions.col import Col
 
 
+class Step(TypedDict):
+    operation: str
+    dataframe: Optional[str]
+    dataframe_in: Optional[str]
+    dataframe_out: Optional[str]
+    args: list[Any]
+    kwargs: dict[str, Any]
+
+
+class Configuration(TypedDict):
+    steps: list[Step]
+    variables: Optional[dict[str, str]]
+
+
 class Config:
     def __init__(self):
         self.current_dataframes: dict[str | None, pl.DataFrame] = {}
@@ -30,9 +46,9 @@ class Config:
         self.custom_functions.update(functions)
         return self
 
-    def _get_parameter_types(self, method: Callable) -> dict[str, Parameter]:
+    def _get_parameter_types(self, method: Callable) -> dict[str, Parameter] | None:
         try:
-            return inspect.signature(method).parameters
+            return dict(inspect.signature(method).parameters)
         except TypeError:
             pass
         if isinstance(method, Col):
@@ -41,12 +57,15 @@ class Config:
                     "name", Parameter.POSITIONAL_OR_KEYWORD, annotation="str"
                 )
             }
+        return None
 
     def _get_type_from_hints(
-        self, key: str | int, type_hints: dict[str, Parameter]
+        self, key: str | int, type_hints: dict[str, Parameter] | None
     ) -> type | None:
         # if key not in type_hints:
         #     return None
+        if type_hints is None:
+            return None
         if isinstance(key, int):
             args = list(type_hints.values())
             positionals = [
@@ -66,7 +85,10 @@ class Config:
                 return None
             param = type_hints[key]
         try:
-            annotation = eval(param.annotation)
+            # Unsafe eval to get the type hint.
+            # We are vulnerable when polars injects unsafe parameter type hints.
+            # If that happens to polars, this is vulnerable anyways.
+            annotation = eval(param.annotation)  # noqa: S307
         except NameError:
             return None
         return annotation
@@ -130,7 +152,7 @@ class Config:
         expr_content: dict,
         variables: dict,
     ) -> pl.Expr:
-        subject = pl
+        subject: pl.Expr | ModuleType = pl
         if "on" in expr_content:
             on_expr = self.handle_expr(
                 expr=expr_content["on"]["expr"],
@@ -161,7 +183,9 @@ class Config:
             *expr_content.get("args", []), **expr_content.get("kwargs", {})
         )
 
-    def parse_nesting(self, value: Any, variables: dict) -> str:
+    def parse_nesting(
+        self, value: Any, variables: dict
+    ) -> str | list[Any] | dict[str, Any]:
         if isinstance(value, list):
             return [self.parse_nesting(i, variables) for i in value]
         elif isinstance(value, dict):
@@ -236,7 +260,9 @@ class Config:
             return self.parse_list(value, variables, type_hint)
         return value
 
-    def parse_kwargs(self, kwargs: dict, variables: dict, type_hints: dict = None):
+    def parse_kwargs(
+        self, kwargs: dict, variables: dict, type_hints: dict | None = None
+    ):
         """
         Parse the kwargs of a step or expression.
         """
@@ -267,11 +293,14 @@ class Config:
         return kwargs
 
     def handle_step(
-        self, current_data: Optional[pl.DataFrame], step: dict, variables: dict
+        self,
+        current_data: Optional[pl.DataFrame],
+        step: Step,
+        variables: dict[str, str],
     ):
         operation = step["operation"]
-        args = step.get("args", [])
-        kwargs = step.get("kwargs", {})
+        args: list[Any] = step.get("args", [])
+        kwargs: dict[str, Any] = step.get("kwargs", {})
         if current_data is None:
             method = getattr(pl, operation)
         else:
@@ -286,16 +315,23 @@ class Config:
         parsed_kwargs = self.parse_kwargs(kwargs, variables, type_hints=parameter_types)
         return method(*parsed_args, **parsed_kwargs)
 
-    def run_config(self, config: dict):
-        variables = config.get("variables", {})
-        steps = config["steps"]
+    def run_config(self, config: Configuration):
+        variables: dict[str, str] = config.get("variables") or {}
+        steps: list[Step] = config["steps"]
         for step in steps:
+            if "dataframe" in step and (
+                "dataframe_in" in step or "dataframe_out" in step
+            ):
+                raise ValueError("use of old and new `dataframe` syntax is not allowed")
             dataframe_name = step.get("dataframe", None)
-            self.current_dataframes[dataframe_name] = self.handle_step(
-                self.current_dataframes.get(dataframe_name), step, variables
+            dataframe_in_name = step.get("dataframe_in", dataframe_name)
+            dataframe_out_name = step.get("dataframe_out", dataframe_name)
+
+            self.current_dataframes[dataframe_out_name] = self.handle_step(
+                self.current_dataframes.get(dataframe_in_name), step, variables
             )
         return self.current_dataframes
 
 
-def run_config(config: dict) -> pl.DataFrame:
+def run_config(config: Configuration) -> pl.DataFrame:
     return Config().run_config(config)[None]

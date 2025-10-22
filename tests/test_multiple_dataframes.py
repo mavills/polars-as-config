@@ -531,3 +531,51 @@ class TestEdgeCases:
         # Should have the new column
         assert "x_times_two" in test_df.columns
         assert len(test_df) == 4  # Should have all original rows
+
+
+class TestDataframeInOutSyntax:
+    """Test suite for the new dataframe in/out syntax."""
+
+    def test_dataframe_in_out_syntax(self):
+        """Test that the new dataframe in/out syntax works."""
+        config = {
+            "steps": [
+                {
+                    "operation": "scan_csv",
+                    "dataframe_out": "test_1",
+                    "kwargs": {"source": "tests/test_data/xy.csv"},
+                },
+                {
+                    "operation": "scan_csv",
+                    "dataframe_out": "test_2",
+                    "kwargs": {"source": "tests/test_data/xy.csv"},
+                },
+                {
+                    "operation": "join",
+                    "dataframe_in": "test_1",
+                    "dataframe_out": "test_3",
+                    "kwargs": {
+                        "on": "x",
+                        "other": "test_2",
+                    },
+                },
+            ]
+        }
+        config_instance = Config()
+        result = config_instance.run_config(config)
+
+        # Should have the test dataframe
+        assert "test_1" in result
+        assert "test_2" in result
+        assert "test_3" in result
+
+        expected_joined = pl.DataFrame(
+            {
+                # nulls are dropped due to join
+                "x": [1, 2, 4],
+                "y": [2, 2, 4],
+                "y_right": [2, 2, 4],
+            }
+        )
+
+        assert_frame_equal(result["test_3"].collect(), expected_joined)
