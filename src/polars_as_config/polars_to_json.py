@@ -51,7 +51,8 @@ class PolarsToJson:
             # We will parse the call recursively.
             result: dict[str, Any] = {}
             # 1. Parse the expression name, then args, then the "on" attribute.
-            # The function must be an attribute of the polars object or a polars expression.
+            # The function must be an attribute of the polars object or
+            # a polars expression.
             if not isinstance(arg.func, ast.Attribute):
                 raise ValueError(f"Call must be on Attribute, got {arg.func}")
             expr, attribute = self.parse_attribute(arg.func)

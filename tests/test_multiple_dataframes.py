@@ -284,7 +284,7 @@ class TestIsDataframeFunction:
     def test_is_dataframe_with_positional_args(self):
         """Test is_dataframe works with positional argument indices."""
 
-        def mock_method(self, df: pl.DataFrame, name: str):
+        def mock_method(_self, _df: pl.DataFrame, _name: str):
             pass
 
         signature = inspect.signature(mock_method)
@@ -377,7 +377,6 @@ class TestEdgeCases:
                         }
                     },
                 },
-                # Operate on None dataframe - use str.join instead of deprecated str.concat
                 {
                     "operation": "with_columns",
                     "kwargs": {
@@ -476,7 +475,8 @@ class TestEdgeCases:
                     "dataframe": "orders",
                     "kwargs": {"source": "$orders_file"},
                 },
-                # Add join column to both dataframes - use literal column name, not variable
+                # Add join column to both dataframes - use literal column name,
+                # not variable.
                 {
                     "operation": "with_columns",
                     "dataframe": "customers",

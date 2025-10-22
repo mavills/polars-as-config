@@ -1,9 +1,7 @@
 import polars as pl
-import pytest
 from polars.testing import assert_frame_equal
 
 from polars_as_config.config import run_config
-from polars_as_config.polars_to_json import PolarsToJson
 
 
 def test_args_only():
@@ -194,7 +192,9 @@ def test_empty_args_and_kwargs():
 
 
 def test_no_args_no_kwargs():
-    """Test operation with neither args nor kwargs specified (should default to empty)."""
+    """
+    Test operation with neither args nor kwargs specified (should default to empty).
+    """
     config = {
         "steps": [
             {"operation": "scan_csv", "kwargs": {"source": "tests/test_data/xy.csv"}},
@@ -223,7 +223,8 @@ def test_args_with_multiple_variables():
         },
         "steps": [
             {
-                "operation": "read_csv",  # Using read_csv instead of scan_csv for this test
+                # Using read_csv instead of scan_csv for this test
+                "operation": "read_csv",
                 "args": ["$file_path"],
                 "kwargs": {"has_header": "$has_header", "separator": "$separator"},
             },

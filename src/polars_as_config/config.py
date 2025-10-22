@@ -269,27 +269,6 @@ class Config:
         for key, value in kwargs.items():
             type_to_check = self._get_type_from_hints(key, type_hints)
             kwargs[key] = self.parse_value(value, variables, type_to_check)
-            # if isinstance(value, str):
-            #     # Try to parse the value as a dataframe
-            #     kwargs[key] = self.parse_string(value, variables, type_to_check)
-            # elif isinstance(value, dict):
-            #     if "expr" in value:
-            #         kwargs[key] = self.handle_expr(
-            #             expr=value["expr"], expr_content=value, variables=variables
-            #         )
-            #     elif "custom_function" in value:
-            #         kwargs[key] = self.custom_functions[value["custom_function"]]
-            # elif isinstance(value, list):
-            #     kwargs[key] = [
-            #         (
-            #             self.handle_expr(
-            #                 expr=i["expr"], expr_content=i, variables=variables
-            #             )
-            #             if isinstance(i, dict)
-            #             else i
-            #         )
-            #         for i in value
-            #     ]
         return kwargs
 
     def handle_step(
