@@ -7,7 +7,7 @@ class JsonToPolars:
                 operation = prefix + "." + operation
             else:
                 operation = "polars." + operation
-            args = ", ".join([self.arg_to_polars(arg) for arg in expr["args"]])
+            args = ", ".join([self.arg_to_polars(arg) for arg in expr.get("args", [])])
             kwargs = ", ".join(
                 [
                     f"{key}={self.arg_to_polars(value)}"
